@@ -1,9 +1,13 @@
 import express from "express";
+import { JWT_PASSWORD } from "./config";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import { UserModel } from "./db";
+import { UserModel, ContentModel } from "./db";
+import { userMiddleware } from "./middleware";
+import { TypeFormatFlags } from "typescript";
+import { Request, Response } from "express";
 
-const JWT_PASSWORD = "!1212";
+
 
 const app = express()
 app.use(express.json());
@@ -57,19 +61,56 @@ app.post("/api/v1/signin", async (req, res) => {
 
 })
 
+app.post("/api/v1/content", userMiddleware, async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { title, link } = req.body;
 
-app.get("/api/v1/content", async (req, res) => {
-    const title = req.body.title
-    const content = req.body.content
-    const tags = req.body.tags
-    res.send
+        await ContentModel.create({
+            link,
+            title,
+            //@ts-ignore
+            userId: req.userId,
+            tags: []
+        });
 
+        res.json({ message: "Content added" });
+    } catch (error) {
+        console.error("Error adding content:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+app.get("/api/v1/content", userMiddleware, async (req, res) => {
+    //@ts-ignore
+    const userId = req.userId;
+    const content = await ContentModel.find({
+        userId: userId
+    }).populate("userId", "username")
+    res.json(
+        { content }
+    )
 })
 
 
-app.delete("/api/v1/content", (req, res) => {
+app.delete("/api/v1/content", userMiddleware, async (req, res): Promise<void> => {
+    try {
+        //@ts-ignore
+        const contentId = req.body.contentId;
+        //@ts-ignore
+        const userId = req.userId; // Ensure userId is properly extracted
 
-})
+        await ContentModel.deleteMany({
+            contentId,
+            userId
+        });
+
+        res.json({ message: "Deleted" }); // Use res.json() instead of returning an object
+    } catch (error) {
+        console.error("Error deleting content:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
 app.post("/api/v1/brain/share", (req, res) => {
 
 })
